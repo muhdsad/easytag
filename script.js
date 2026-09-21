@@ -443,17 +443,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (titleEl) titleEl.style.fontSize = '';
             if (priceEl) priceEl.style.fontSize = '';
 
-            // Card dimensions (unscaled A4 cell: ~74.25mm width x 52.5mm height)
+            // Card dimensions (unscaled A4 cell: ~74.25mm width)
             const cardWidth = card.clientWidth || (1122.5 / 4);
-            const cardHeight = card.clientHeight || (793.7 / 4);
             const maxAllowedWidth = cardWidth - 8; // Minimal padding offset
-            const maxAllowedHeight = (cardHeight / 2) - 2; // Max height allocated per text line
 
             if (titleEl && titleEl.textContent) {
                 let size = 21; // mm base font size (HUGE & HEAVY matching screenshot)
                 titleEl.style.fontSize = `${size}mm`;
-                // Keep shrinking until element fits within cell width & height boundary
-                while ((titleEl.scrollWidth > maxAllowedWidth || titleEl.offsetHeight > maxAllowedHeight * 1.15) && size > 5) {
+                // Keep shrinking horizontally until element fits on a single line
+                while (titleEl.scrollWidth > maxAllowedWidth && size > 5) {
                     size -= 0.3;
                     titleEl.style.fontSize = `${size}mm`;
                 }
@@ -462,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (priceEl && priceEl.textContent) {
                 let size = 21; // mm base font size (HUGE & HEAVY matching screenshot)
                 priceEl.style.fontSize = `${size}mm`;
-                while ((priceEl.scrollWidth > maxAllowedWidth || priceEl.offsetHeight > maxAllowedHeight * 1.15) && size > 5) {
+                while (priceEl.scrollWidth > maxAllowedWidth && size > 5) {
                     size -= 0.3;
                     priceEl.style.fontSize = `${size}mm`;
                 }
