@@ -80,7 +80,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalImageInput = document.getElementById('modal-image-input');
     let currentImageBase64 = null;
 
-    // Helper: Switch views
+    // Helper: Switch views & ensure fonts fit once web fonts are fully loaded
+    function triggerFontRefit() {
+        updateScaleFactor();
+        adjustAllFontSizes();
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(() => {
+                requestAnimationFrame(() => {
+                    updateScaleFactor();
+                    adjustAllFontSizes();
+                });
+            });
+        }
+    }
+
     function showView(viewId) {
         document.querySelectorAll('.view-container').forEach(view => {
             view.classList.remove('active');
@@ -88,10 +101,24 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById(viewId).classList.add('active');
         if (viewId === 'preview-view') {
             requestAnimationFrame(() => {
-                updateScaleFactor();
-                adjustAllFontSizes();
+                triggerFontRefit();
             });
+            setTimeout(triggerFontRefit, 300);
+            setTimeout(triggerFontRefit, 800);
         }
+    }
+
+    if (document.fonts) {
+        document.fonts.ready.then(() => {
+            if (document.getElementById('preview-view') && document.getElementById('preview-view').classList.contains('active')) {
+                triggerFontRefit();
+            }
+        });
+        document.fonts.onloadingdone = () => {
+            if (document.getElementById('preview-view') && document.getElementById('preview-view').classList.contains('active')) {
+                triggerFontRefit();
+            }
+        };
     }
 
     // Helper: Dynamic scale factor for responsive display
@@ -113,14 +140,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     window.addEventListener('resize', () => {
-        updateScaleFactor();
-        adjustAllFontSizes();
+        triggerFontRefit();
     });
 
     window.addEventListener('orientationchange', () => {
         setTimeout(() => {
-            updateScaleFactor();
-            adjustAllFontSizes();
+            triggerFontRefit();
         }, 150);
     });
 

@@ -379,7 +379,7 @@ body {
 
 /* Font details matching screenshot - Heavy big readable font */
 .product-title {
-    font-family: Impact, 'Bebas Neue', 'Anton', 'Oswald', 'Arial Black', sans-serif;
+    font-family: 'Bebas Neue', Impact, 'Anton', 'Oswald', 'Arial Black', sans-serif;
     font-size: 21mm;
     font-weight: 900;
     line-height: 0.88;
@@ -396,7 +396,7 @@ body {
 }
 
 .price-tag-line {
-    font-family: Impact, 'Bebas Neue', 'Anton', 'Oswald', 'Arial Black', sans-serif;
+    font-family: 'Bebas Neue', Impact, 'Anton', 'Oswald', 'Arial Black', sans-serif;
     font-size: 21mm;
     font-weight: 900;
     line-height: 0.88;
