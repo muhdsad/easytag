@@ -407,8 +407,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Fit Text Size logic (ensures long words/prices scale down to fit on a single line)
-    function adjustAllFontSizes() {
-        const cards = document.querySelectorAll('.price-card');
+    function adjustAllFontSizes(container = document) {
+        const cards = container.querySelectorAll('.price-card');
         cards.forEach(card => {
             const titleEl = card.querySelector('.product-title');
             const priceEl = card.querySelector('.price-tag-line');
@@ -627,30 +627,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             document.body.appendChild(container);
 
-            // Re-fit fonts inside the clone since size scales down inside the DOM width
-            const cards = container.querySelectorAll('.price-card');
-            cards.forEach(card => {
-                const titleEl = card.querySelector('.product-title');
-                const priceEl = card.querySelector('.price-tag-line');
-                const maxAllowedWidth = (a4WidthPx / 4) - 16;
-
-                if (titleEl && titleEl.textContent) {
-                    let size = 14;
-                    titleEl.style.fontSize = `${size}mm`;
-                    while (titleEl.scrollWidth > maxAllowedWidth && size > 5) {
-                        size -= 0.4;
-                        titleEl.style.fontSize = `${size}mm`;
-                    }
-                }
-                if (priceEl && priceEl.textContent) {
-                    let size = 14;
-                    priceEl.style.fontSize = `${size}mm`;
-                    while (priceEl.scrollWidth > maxAllowedWidth && size > 5) {
-                        size -= 0.4;
-                        priceEl.style.fontSize = `${size}mm`;
-                    }
-                }
-            });
+            // Re-fit fonts inside the clone using the main font scaling algorithm (21mm base size)
+            adjustAllFontSizes(container);
 
             try {
                 // Ensure browser loaded Google fonts before converting canvas
