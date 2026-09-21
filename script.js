@@ -612,14 +612,16 @@ document.addEventListener('DOMContentLoaded', () => {
             
             element.style.width = `${a4WidthPx}px`;
             element.style.height = `${a4HeightPx}px`;
+            element.style.minWidth = `${a4WidthPx}px`;
+            element.style.minHeight = `${a4HeightPx}px`;
             element.style.margin = '0';
             element.style.boxShadow = 'none';
             element.style.transform = 'none';
 
             const container = document.createElement('div');
-            container.style.position = 'absolute';
+            container.style.position = 'fixed';
             container.style.top = '0';
-            container.style.left = '0';
+            container.style.left = '-9999px';
             container.style.zIndex = '-9999';
             container.style.width = `${a4WidthPx}px`;
             container.style.height = `${a4HeightPx}px`;
@@ -627,12 +629,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             document.body.appendChild(container);
 
-            // Re-fit fonts inside the clone using the main font scaling algorithm (21mm base size)
-            adjustAllFontSizes(container);
-
             try {
-                // Ensure browser loaded Google fonts before converting canvas
+                // Ensure browser loaded Google fonts before measuring text dimensions
                 await document.fonts.ready;
+                
+                // Re-fit fonts inside the clone using the main font scaling algorithm (21mm base size)
+                adjustAllFontSizes(container);
                 
                 const canvas = await html2canvas(element, {
                     scale: 2, // Retains high crisp printing resolution
