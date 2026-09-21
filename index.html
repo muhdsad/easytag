@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1f7e22">
+    <title>Supermarket Price Tag Generator</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Oswald:wght@700&family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- Upload View -->
+    <div id="upload-view" class="view-container active">
+        <div class="upload-card">
+            <div class="upload-header">
+                <h1>A4 Price Tag Generator</h1>
+                <p>Generate high-quality 4x4 landscape price tag sheets by uploading your product list.</p>
+            </div>
+
+            <div class="drop-zone" id="drop-zone">
+                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                </svg>
+                <div class="drop-text">Drag & drop your CSV or Excel file here</div>
+                <div class="drop-subtext">Supports .csv, .xlsx, .xls</div>
+                <button class="btn btn-primary" id="browse-btn">Browse Files</button>
+                <input type="file" id="file-input" accept=".csv, .xlsx, .xls" style="display: none;">
+            </div>
+
+            <!-- Mapping/Preview Container (hidden by default) -->
+            <div id="mapping-container" class="mapping-container" style="display: none;">
+                <h3>Map Your Columns</h3>
+                <p class="helper-text">Select which columns correspond to the required fields.</p>
+                <div class="mapping-selectors">
+                    <div class="form-group">
+                        <label for="map-item">Item Name Field</label>
+                        <select id="map-item"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="map-price">Price Field (₹)</label>
+                        <select id="map-price"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="map-mrp">MRP Field (₹)</label>
+                        <select id="map-mrp"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="map-unit">Unit Field</label>
+                        <select id="map-unit"></select>
+                    </div>
+                </div>
+
+                <div class="table-preview-wrapper">
+                    <table class="preview-table" id="preview-table">
+                        <thead>
+                            <tr id="preview-table-header"></tr>
+                        </thead>
+                        <tbody id="preview-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="upload-actions">
+                <button id="generate-btn" class="btn btn-success" disabled>Generate Price Tags</button>
+                <button id="use-sample-btn" class="btn btn-secondary">Use Sample Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview View -->
+    <div id="preview-view" class="view-container">
+        <!-- Scale Wrapper for responsive mobile visualization -->
+        <div class="pages-wrapper">
+            <div id="pages-container" class="pages-container">
+                <!-- A4 pages will be generated dynamically here -->
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <button id="new-upload-btn" class="btn btn-secondary">
+                <svg viewBox="0 0 24 24" class="btn-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                New Upload
+            </button>
+            <button id="match-folder-btn" class="btn btn-folder">
+                <svg viewBox="0 0 24 24" class="btn-icon" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="3"/><path d="M12 10v6M9 13h6"/></svg>
+                Match Images (Folder)
+            </button>
+            <button id="match-gdrive-btn" class="btn btn-gdrive">
+                <svg viewBox="0 0 87.3 78" class="btn-icon gdrive-icon" viewBox="0 0 87.3 78"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.45z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a8.9 8.9 0 0 0 -1.2 4.5h27.45z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.9 1.2-4.5h-27.45l6.85 11.85z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.45-1.2h-18.6c-1.55 0-3.1.4-4.45 1.2z" fill="#00832d"/><path d="m59.8 53-16.15-28-16.15 28h32.3z" fill="#2684fc"/><path d="m73.55 76.8 13.75-23.8c.8-1.35 1.2-2.9 1.2-4.45 0-1.55-.4-3.1-1.2-4.45l-25.4-44c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 28.7 49.7z" fill="#ffba00"/></svg>
+                Match Images (Google Drive)
+            </button>
+            <button id="print-btn" class="btn btn-primary">
+                <svg viewBox="0 0 24 24" class="btn-icon"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2m-12-4h12v8H6z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                Print Sheets
+            </button>
+            <button id="save-png-btn" class="btn btn-success">
+                <svg viewBox="0 0 24 24" class="btn-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M19 12l-7 7-7-7M12 3v16" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                Save as PNG
+            </button>
+        </div>
+        <!-- Hidden file input for folder selection -->
+        <input type="file" id="folder-input" webkitdirectory directory multiple accept="image/*" style="display: none;">
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editor-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Edit Price Tag</h2>
+
+            <div class="form-group">
+                <label for="item-name">Product Name</label>
+                <input type="text" id="item-name" placeholder="e.g. TOMATO">
+            </div>
+
+            <div class="form-group">
+                <label for="item-sp">Selling Price (₹)</label>
+                <input type="number" step="0.01" id="item-sp" placeholder="e.g. 19.90">
+            </div>
+
+            <div class="form-group">
+                <label for="item-mrp">MRP (₹)</label>
+                <input type="number" step="0.01" id="item-mrp" placeholder="e.g. 25.00">
+            </div>
+
+            <div class="form-group">
+                <label for="item-unit">Unit / Weight</label>
+                <input type="text" id="item-unit" placeholder="e.g. KG or 1 KG">
+            </div>
+
+            <div class="form-group">
+                <label>Product Image</label>
+                <div class="image-upload-box" id="modal-image-box">
+                    <div class="upload-placeholder" id="modal-upload-placeholder">
+                        <svg class="upload-placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                        <span>Click to upload image</span>
+                    </div>
+                    <img id="modal-image-preview" src="" alt="Preview" style="display: none;">
+                    <button type="button" class="remove-image-btn" id="modal-remove-image" style="display: none;">
+                        &times;
+                    </button>
+                </div>
+                <input type="file" id="modal-image-input" accept="image/*" style="display: none;">
+            </div>
+
+            <div class="modal-actions">
+                <button id="delete-btn" class="btn btn-danger">Clear Tag</button>
+                <button id="cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="save-btn" class="btn btn-success">Save & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Drive Matching Modal -->
+    <div id="gdrive-modal" class="modal">
+        <div class="modal-content gdrive-modal-content">
+            <span class="close-btn" id="gdrive-close-btn">&times;</span>
+            <div class="gdrive-header">
+                <svg class="gdrive-title-icon" viewBox="0 0 87.3 78"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.45z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a8.9 8.9 0 0 0 -1.2 4.5h27.45z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.9 1.2-4.5h-27.45l6.85 11.85z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.45-1.2h-18.6c-1.55 0-3.1.4-4.45 1.2z" fill="#00832d"/><path d="m59.8 53-16.15-28-16.15 28h32.3z" fill="#2684fc"/><path d="m73.55 76.8 13.75-23.8c.8-1.35 1.2-2.9 1.2-4.45 0-1.55-.4-3.1-1.2-4.45l-25.4-44c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 28.7 49.7z" fill="#ffba00"/></svg>
+                <h2>Match Product Images from Google Drive</h2>
+            </div>
+            <p class="helper-text">Enter a Google Drive shared folder URL, public folder ID, or paste direct image links to automatically match product images.</p>
+
+            <div class="gdrive-tabs">
+                <button type="button" class="tab-btn active" data-tab="tab-folder">Folder URL / ID</button>
+                <button type="button" class="tab-btn" data-tab="tab-links">Bulk Links / URLs</button>
+            </div>
+
+            <!-- Tab 1: Folder URL / ID -->
+            <div id="tab-folder" class="tab-content active">
+                <div class="form-group">
+                    <label for="gdrive-folder-url">Google Drive Shared Folder Link or Folder ID</label>
+                    <input type="text" id="gdrive-folder-url" placeholder="e.g. https://drive.google.com/drive/folders/1A2b3C... or 1A2b3C...">
+                    <small class="form-hint">Make sure the folder sharing setting is set to "Anyone with the link can view".</small>
+                </div>
+                <div class="form-group" style="margin-top: 10px;">
+                    <label for="gdrive-api-key">Google Drive API Key (Optional)</label>
+                    <input type="text" id="gdrive-api-key" placeholder="Enter API key for private or large folders">
+                </div>
+            </div>
+
+            <!-- Tab 2: Bulk Links -->
+            <div id="tab-links" class="tab-content">
+                <div class="form-group">
+                    <label for="gdrive-links-input">Paste Google Drive Image Share Links / Direct URLs (One per line)</label>
+                    <textarea id="gdrive-links-input" rows="5" placeholder="e.g.&#10;TOMATO: https://drive.google.com/file/d/1ABC.../view&#10;CAPSICUM: https://drive.google.com/file/d/2XYZ.../view&#10;or simply paste URLs containing filenames"></textarea>
+                </div>
+            </div>
+
+            <!-- Status / Matching Log -->
+            <div id="gdrive-status" class="gdrive-status" style="display: none;"></div>
+
+            <div class="modal-actions" style="margin-top: 20px;">
+                <button id="gdrive-cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="gdrive-fetch-btn" class="btn btn-primary">Fetch & Match Images</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="script.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('Service Worker Registered'))
+                .catch(err => console.log('Service Worker Failed', err));
+        }
+    </script>
+</body>
+
+</html>
