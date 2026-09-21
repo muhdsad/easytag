@@ -80,20 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalImageInput = document.getElementById('modal-image-input');
     let currentImageBase64 = null;
 
-    // Helper: Switch views & ensure fonts fit once web fonts are fully loaded
-    function triggerFontRefit() {
-        updateScaleFactor();
-        adjustAllFontSizes();
-        if (document.fonts && document.fonts.ready) {
-            document.fonts.ready.then(() => {
-                requestAnimationFrame(() => {
-                    updateScaleFactor();
-                    adjustAllFontSizes();
-                });
-            });
-        }
-    }
-
+    // Helper: Switch views
     function showView(viewId) {
         document.querySelectorAll('.view-container').forEach(view => {
             view.classList.remove('active');
@@ -101,24 +88,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById(viewId).classList.add('active');
         if (viewId === 'preview-view') {
             requestAnimationFrame(() => {
-                triggerFontRefit();
+                updateScaleFactor();
+                adjustAllFontSizes();
             });
-            setTimeout(triggerFontRefit, 300);
-            setTimeout(triggerFontRefit, 800);
         }
-    }
-
-    if (document.fonts) {
-        document.fonts.ready.then(() => {
-            if (document.getElementById('preview-view') && document.getElementById('preview-view').classList.contains('active')) {
-                triggerFontRefit();
-            }
-        });
-        document.fonts.onloadingdone = () => {
-            if (document.getElementById('preview-view') && document.getElementById('preview-view').classList.contains('active')) {
-                triggerFontRefit();
-            }
-        };
     }
 
     // Helper: Dynamic scale factor for responsive display
@@ -140,12 +113,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     window.addEventListener('resize', () => {
-        triggerFontRefit();
+        updateScaleFactor();
+        adjustAllFontSizes();
     });
 
     window.addEventListener('orientationchange', () => {
         setTimeout(() => {
-            triggerFontRefit();
+            updateScaleFactor();
+            adjustAllFontSizes();
         }, 150);
     });
 
@@ -431,39 +406,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Fit Text Size logic (ensures long words/prices scale down to fit on a single line)
+    // Fit Text Size logic - uses character count instead of DOM measurement
+    // to guarantee identical results on local file:// and web deployments (Vercel/Netlify).
+    // Impact/Anton fonts have an average char-width of ~0.48x the font-size.
+    // Card width = 297mm / 4 = 74.25mm. Usable width ~72mm (padding).
+    function calcFontSize(text) {
+        if (!text || text.trim().length === 0) return 21;
+        const charCount = text.trim().length;
+        // Impact/Anton condensed font: each character is roughly 0.42 * fontSize wide
+        // Available card width: ~72mm
+        // fontSize = 72 / (charCount * 0.42), capped between 5mm and 21mm
+        const computed = 72 / (charCount * 0.42);
+        return Math.max(5, Math.min(21, computed));
+    }
+
     function adjustAllFontSizes(container = document) {
         const cards = container.querySelectorAll('.price-card');
         cards.forEach(card => {
             const titleEl = card.querySelector('.product-title');
             const priceEl = card.querySelector('.price-tag-line');
-            if (!titleEl && !priceEl) return;
-
-            // Reset fonts
-            if (titleEl) titleEl.style.fontSize = '';
-            if (priceEl) priceEl.style.fontSize = '';
-
-            // Card dimensions (unscaled A4 cell: ~74.25mm width)
-            const cardWidth = card.clientWidth || (1122.5 / 4);
-            const maxAllowedWidth = cardWidth - 8; // Minimal padding offset
 
             if (titleEl && titleEl.textContent) {
-                let size = 21; // mm base font size (HUGE & HEAVY matching screenshot)
+                const size = calcFontSize(titleEl.textContent);
                 titleEl.style.fontSize = `${size}mm`;
-                // Keep shrinking horizontally until element fits on a single line
-                while (titleEl.scrollWidth > maxAllowedWidth && size > 5) {
-                    size -= 0.3;
-                    titleEl.style.fontSize = `${size}mm`;
-                }
             }
 
             if (priceEl && priceEl.textContent) {
-                let size = 21; // mm base font size (HUGE & HEAVY matching screenshot)
+                const size = calcFontSize(priceEl.textContent);
                 priceEl.style.fontSize = `${size}mm`;
-                while (priceEl.scrollWidth > maxAllowedWidth && size > 5) {
-                    size -= 0.3;
-                    priceEl.style.fontSize = `${size}mm`;
-                }
             }
         });
     }
