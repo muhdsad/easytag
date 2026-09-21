@@ -1,4 +1,4 @@
-const CACHE_NAME = 'price-tags-app-v7';
+const CACHE_NAME = 'price-tags-app-v8';
 const ASSETS = [
     './',
     './index.html',
