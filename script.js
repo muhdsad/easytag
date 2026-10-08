@@ -38,20 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const printBtn = document.getElementById('print-btn');
     const savePngBtn = document.getElementById('save-png-btn');
     
-    // Image Matching Elements
-    const matchFolderBtn = document.getElementById('match-folder-btn');
-    const matchGdriveBtn = document.getElementById('match-gdrive-btn');
-    const folderInput = document.getElementById('folder-input');
-    const gdriveModal = document.getElementById('gdrive-modal');
-    const gdriveCloseBtn = document.getElementById('gdrive-close-btn');
-    const gdriveCancelBtn = document.getElementById('gdrive-cancel-btn');
-    const gdriveFetchBtn = document.getElementById('gdrive-fetch-btn');
-    const gdriveFolderUrlInput = document.getElementById('gdrive-folder-url');
-    const gdriveApiKeyInput = document.getElementById('gdrive-api-key');
-    const gdriveLinksInput = document.getElementById('gdrive-links-input');
-    const gdriveStatus = document.getElementById('gdrive-status');
-    const toastContainer = document.getElementById('toast-container');
-    
     // Mapping Elements
     const mappingContainer = document.getElementById('mapping-container');
     const mapItemSelect = document.getElementById('map-item');
@@ -87,10 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         document.getElementById(viewId).classList.add('active');
         if (viewId === 'preview-view') {
-            requestAnimationFrame(() => {
-                updateScaleFactor();
-                adjustAllFontSizes();
-            });
+            updateScaleFactor();
+            // Let the layout settle then adjust font sizes
+            setTimeout(adjustAllFontSizes, 100);
         }
     }
 
@@ -101,8 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Target width of A4 Landscape container is 297mm (~1122.5px at 96 DPI)
         const a4WidthPx = 1122.5;
-        const padding = window.innerWidth <= 768 ? 20 : 40;
-        const availableWidth = Math.max(260, wrapper.clientWidth - padding);
+        const availableWidth = wrapper.clientWidth - 40; // Subtract padding margins
         
         let scaleFactor = 1;
         if (availableWidth < a4WidthPx) {
@@ -112,17 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.documentElement.style.setProperty('--scale-factor', scaleFactor);
     }
     
-    window.addEventListener('resize', () => {
-        updateScaleFactor();
-        adjustAllFontSizes();
-    });
-
-    window.addEventListener('orientationchange', () => {
-        setTimeout(() => {
-            updateScaleFactor();
-            adjustAllFontSizes();
-        }, 150);
-    });
+    window.addEventListener('resize', updateScaleFactor);
 
     // Drag & Drop Setup
     dropZone.addEventListener('dragover', (e) => {
@@ -406,34 +380,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Fit Text Size logic - uses character count instead of DOM measurement
-    // to guarantee identical results on local file:// and web deployments (Vercel/Netlify).
-    // Impact/Anton fonts have an average char-width of ~0.48x the font-size.
-    // Card width = 297mm / 4 = 74.25mm. Usable width ~72mm (padding).
-    function calcFontSize(text) {
-        if (!text || text.trim().length === 0) return 21;
-        const charCount = text.trim().length;
-        // Impact/Anton condensed font: each character is roughly 0.42 * fontSize wide
-        // Available card width: ~72mm
-        // fontSize = 72 / (charCount * 0.42), capped between 5mm and 21mm
-        const computed = 72 / (charCount * 0.42);
-        return Math.max(5, Math.min(21, computed));
-    }
-
-    function adjustAllFontSizes(container = document) {
-        const cards = container.querySelectorAll('.price-card');
+    // Fit Text Size logic (ensures long words/prices scale down to fit on a single line)
+    function adjustAllFontSizes() {
+        const cards = document.querySelectorAll('.price-card');
         cards.forEach(card => {
             const titleEl = card.querySelector('.product-title');
             const priceEl = card.querySelector('.price-tag-line');
+            if (!titleEl && !priceEl) return;
+
+            // Reset fonts
+            if (titleEl) titleEl.style.fontSize = '';
+            if (priceEl) priceEl.style.fontSize = '';
+
+            // Card width (approx 74.25mm)
+            const cardWidth = card.getBoundingClientRect().width;
+            const maxAllowedWidth = cardWidth - 16; // Give padding offset
 
             if (titleEl && titleEl.textContent) {
-                const size = calcFontSize(titleEl.textContent);
+                let size = 13.5; // mm base font size
                 titleEl.style.fontSize = `${size}mm`;
+                // Keep shrinking until element fits within cell boundary
+                while (titleEl.scrollWidth > maxAllowedWidth && size > 5) {
+                    size -= 0.4;
+                    titleEl.style.fontSize = `${size}mm`;
+                }
             }
 
             if (priceEl && priceEl.textContent) {
-                const size = calcFontSize(priceEl.textContent);
+                let size = 13.5; // mm base font size
                 priceEl.style.fontSize = `${size}mm`;
+                while (priceEl.scrollWidth > maxAllowedWidth && size > 5) {
+                    size -= 0.4;
+                    priceEl.style.fontSize = `${size}mm`;
+                }
             }
         });
     }
@@ -605,16 +584,14 @@ document.addEventListener('DOMContentLoaded', () => {
             
             element.style.width = `${a4WidthPx}px`;
             element.style.height = `${a4HeightPx}px`;
-            element.style.minWidth = `${a4WidthPx}px`;
-            element.style.minHeight = `${a4HeightPx}px`;
             element.style.margin = '0';
             element.style.boxShadow = 'none';
             element.style.transform = 'none';
 
             const container = document.createElement('div');
-            container.style.position = 'fixed';
+            container.style.position = 'absolute';
             container.style.top = '0';
-            container.style.left = '-9999px';
+            container.style.left = '0';
             container.style.zIndex = '-9999';
             container.style.width = `${a4WidthPx}px`;
             container.style.height = `${a4HeightPx}px`;
@@ -622,12 +599,34 @@ document.addEventListener('DOMContentLoaded', () => {
             
             document.body.appendChild(container);
 
+            // Re-fit fonts inside the clone since size scales down inside the DOM width
+            const cards = container.querySelectorAll('.price-card');
+            cards.forEach(card => {
+                const titleEl = card.querySelector('.product-title');
+                const priceEl = card.querySelector('.price-tag-line');
+                const maxAllowedWidth = (a4WidthPx / 4) - 16;
+
+                if (titleEl && titleEl.textContent) {
+                    let size = 13.5;
+                    titleEl.style.fontSize = `${size}mm`;
+                    while (titleEl.scrollWidth > maxAllowedWidth && size > 5) {
+                        size -= 0.4;
+                        titleEl.style.fontSize = `${size}mm`;
+                    }
+                }
+                if (priceEl && priceEl.textContent) {
+                    let size = 13.5;
+                    priceEl.style.fontSize = `${size}mm`;
+                    while (priceEl.scrollWidth > maxAllowedWidth && size > 5) {
+                        size -= 0.4;
+                        priceEl.style.fontSize = `${size}mm`;
+                    }
+                }
+            });
+
             try {
-                // Ensure browser loaded Google fonts before measuring text dimensions
+                // Ensure browser loaded Google fonts before converting canvas
                 await document.fonts.ready;
-                
-                // Re-fit fonts inside the clone using the main font scaling algorithm (21mm base size)
-                adjustAllFontSizes(container);
                 
                 const canvas = await html2canvas(element, {
                     scale: 2, // Retains high crisp printing resolution
@@ -662,372 +661,4 @@ document.addEventListener('DOMContentLoaded', () => {
         savePngBtn.disabled = false;
         savePngBtn.innerHTML = originalText;
     });
-
-    // ==========================================
-    // IMAGE MATCHING LOGIC & HELPERS
-    // ==========================================
-
-    // Helper: Toast Notifications
-    function showToast(message, type = 'info', duration = 4000) {
-        if (!toastContainer) return;
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        
-        let iconSvg = '';
-        if (type === 'success') {
-            iconSvg = `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
-        } else if (type === 'error') {
-            iconSvg = `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
-        } else {
-            iconSvg = `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
-        }
-
-        toast.innerHTML = `${iconSvg}<span>${message}</span>`;
-        toastContainer.appendChild(toast);
-
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateY(10px)';
-            toast.style.transition = 'all 0.3s ease';
-            setTimeout(() => toast.remove(), 300);
-        }, duration);
-    }
-
-    // Helper: Normalize String for Matching
-    function normalizeString(str) {
-        if (!str) return '';
-        const withoutExt = str.replace(/\.(png|jpe?g|webp|gif|svg|bmp)$/i, '');
-        return withoutExt.toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
-    }
-
-    // Helper: Smart Score for matching product item name with file name
-    function calculateMatchScore(itemName, filename) {
-        const normItem = normalizeString(itemName);
-        const normFile = normalizeString(filename);
-
-        if (!normItem || !normFile) return 0;
-
-        // 1. Exact match
-        if (normItem === normFile) return 100;
-
-        // 2. Spaces stripped match (e.g. "GREEN CHILLIY" matches "greenchilliy")
-        const itemNoSpace = normItem.replace(/\s+/g, '');
-        const fileNoSpace = normFile.replace(/\s+/g, '');
-        if (itemNoSpace === fileNoSpace) return 95;
-
-        // 3. Substring match
-        if (fileNoSpace.includes(itemNoSpace) || itemNoSpace.includes(fileNoSpace)) return 80;
-
-        // 4. Token overlap
-        const itemTokens = normItem.split(' ').filter(t => t.length > 1);
-        const fileTokens = normFile.split(' ').filter(t => t.length > 1);
-
-        if (itemTokens.length === 0 || fileTokens.length === 0) return 0;
-
-        const matchedTokens = itemTokens.filter(t => fileTokens.includes(t));
-        if (matchedTokens.length === itemTokens.length) return 75;
-
-        const matchRatio = matchedTokens.length / itemTokens.length;
-        if (matchRatio >= 0.5) return Math.round(matchRatio * 60);
-
-        return 0;
-    }
-
-    // --- 1. LOCAL FOLDER MATCHING ---
-    if (matchFolderBtn) {
-        matchFolderBtn.addEventListener('click', () => {
-            if (items.length === 0) {
-                showToast('Please upload or generate product data first before matching images.', 'error');
-                return;
-            }
-            folderInput.click();
-        });
-    }
-
-    if (folderInput) {
-        folderInput.addEventListener('change', async (e) => {
-            const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg|bmp)$/i.test(f.name));
-
-            if (files.length === 0) {
-                showToast('No image files found in the selected folder.', 'error');
-                return;
-            }
-
-            let matchedCount = 0;
-
-            const readAsDataURL = (file) => new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onload = (evt) => resolve(evt.target.result);
-                reader.onerror = () => resolve(null);
-                reader.readAsDataURL(file);
-            });
-
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
-                if (!item.name) continue;
-
-                let bestMatchFile = null;
-                let bestScore = 0;
-
-                for (const file of files) {
-                    const score = calculateMatchScore(item.name, file.name);
-                    if (score > bestScore && score >= 50) {
-                        bestScore = score;
-                        bestMatchFile = file;
-                    }
-                }
-
-                if (bestMatchFile) {
-                    const dataUrl = await readAsDataURL(bestMatchFile);
-                    if (dataUrl) {
-                        item.image = dataUrl;
-                        matchedCount++;
-                    }
-                }
-            }
-
-            renderGridPages();
-            adjustAllFontSizes();
-
-            if (matchedCount > 0) {
-                showToast(`Successfully matched ${matchedCount} of ${items.length} product images from folder!`, 'success');
-            } else {
-                showToast(`Scanned ${files.length} images, but could not find matching product names (e.g. "TOMATO.jpg").`, 'info', 6000);
-            }
-
-            folderInput.value = '';
-        });
-    }
-
-    // --- 2. GOOGLE DRIVE MATCHING ---
-    document.querySelectorAll('.gdrive-tabs .tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.gdrive-tabs .tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.gdrive-modal-content .tab-content').forEach(c => c.classList.remove('active'));
-            btn.classList.add('active');
-            const tabId = btn.getAttribute('data-tab');
-            document.getElementById(tabId).classList.add('active');
-        });
-    });
-
-    function openGdriveModal() {
-        if (items.length === 0) {
-            showToast('Please upload or generate product data first before matching images.', 'error');
-            return;
-        }
-        if (gdriveStatus) {
-            gdriveStatus.style.display = 'none';
-            gdriveStatus.className = 'gdrive-status';
-            gdriveStatus.innerHTML = '';
-        }
-        gdriveModal.style.display = 'flex';
-    }
-
-    function closeGdriveModal() {
-        gdriveModal.style.display = 'none';
-    }
-
-    if (matchGdriveBtn) matchGdriveBtn.addEventListener('click', openGdriveModal);
-    if (gdriveCloseBtn) gdriveCloseBtn.addEventListener('click', closeGdriveModal);
-    if (gdriveCancelBtn) gdriveCancelBtn.addEventListener('click', closeGdriveModal);
-
-    // Convert image URL to Base64 (to prevent CORS canvas export issues)
-    async function fetchImageAsBase64(url) {
-        try {
-            const response = await fetch(url);
-            if (!response.ok) return null;
-            const blob = await response.blob();
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.onerror = () => resolve(null);
-                reader.readAsDataURL(blob);
-            });
-        } catch (e) {
-            return url; // fallback to direct URL
-        }
-    }
-
-    // Helper: Extract Google Drive File ID
-    function extractDriveFileId(str) {
-        if (!str) return null;
-        const match = str.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || 
-                      str.match(/id=([a-zA-Z0-9_-]+)/) ||
-                      str.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-        if (match) return match[1];
-        if (/^[a-zA-Z0-9_-]{25,50}$/.test(str.trim())) return str.trim();
-        return null;
-    }
-
-    if (gdriveFetchBtn) {
-        gdriveFetchBtn.addEventListener('click', async () => {
-            const activeTab = document.querySelector('.gdrive-tabs .tab-btn.active').getAttribute('data-tab');
-            
-            gdriveStatus.style.display = 'block';
-            gdriveStatus.className = 'gdrive-status info';
-            gdriveStatus.innerHTML = 'Connecting to Google Drive and scanning images...';
-            gdriveFetchBtn.disabled = true;
-
-            let matchedCount = 0;
-
-            try {
-                if (activeTab === 'tab-folder') {
-                    const folderInputVal = gdriveFolderUrlInput.value.trim();
-                    const apiKey = gdriveApiKeyInput.value.trim();
-                    const folderId = extractDriveFileId(folderInputVal);
-
-                    if (!folderId) {
-                        gdriveStatus.className = 'gdrive-status error';
-                        gdriveStatus.innerHTML = 'Please enter a valid Google Drive Folder URL or Folder ID.';
-                        gdriveFetchBtn.disabled = false;
-                        return;
-                    }
-
-                    if (apiKey) {
-                        const apiUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+mimeType+contains+'image/'&fields=files(id,name)&key=${apiKey}`;
-                        const res = await fetch(apiUrl);
-                        if (!res.ok) {
-                            throw new Error(`Google Drive API error (${res.status}). Verify API Key and Folder sharing settings.`);
-                        }
-                        const data = await res.json();
-                        const files = data.files || [];
-
-                        for (let i = 0; i < items.length; i++) {
-                            const item = items[i];
-                            if (!item.name) continue;
-
-                            let bestMatch = null;
-                            let bestScore = 0;
-
-                            for (const file of files) {
-                                const score = calculateMatchScore(item.name, file.name);
-                                if (score > bestScore && score >= 50) {
-                                    bestScore = score;
-                                    bestMatch = file;
-                                }
-                            }
-
-                            if (bestMatch) {
-                                const directUrl = `https://lh3.googleusercontent.com/d/${bestMatch.id}`;
-                                const base64 = await fetchImageAsBase64(directUrl);
-                                if (base64) {
-                                    item.image = base64;
-                                    matchedCount++;
-                                }
-                            }
-                        }
-                    } else {
-                        // Without API key: try parsing public folder view or fallback instructions
-                        try {
-                            const corsProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://drive.google.com/drive/folders/${folderId}`)}`;
-                            const pageRes = await fetch(corsProxyUrl);
-                            const pageHtml = await pageRes.text();
-
-                            const matches = [...pageHtml.matchAll(/\["([a-zA-Z0-9_-]{25,50})",\["([^"]+)"/g)];
-                            const extractedFiles = matches.map(m => ({ id: m[1], name: m[2] }));
-
-                            if (extractedFiles.length > 0) {
-                                for (let i = 0; i < items.length; i++) {
-                                    const item = items[i];
-                                    if (!item.name) continue;
-                                    let bestMatch = null;
-                                    let bestScore = 0;
-                                    for (const file of extractedFiles) {
-                                        const score = calculateMatchScore(item.name, file.name);
-                                        if (score > bestScore && score >= 50) {
-                                            bestScore = score;
-                                            bestMatch = file;
-                                        }
-                                    }
-                                    if (bestMatch) {
-                                        const directUrl = `https://lh3.googleusercontent.com/d/${bestMatch.id}`;
-                                        const base64 = await fetchImageAsBase64(directUrl);
-                                        if (base64) {
-                                            item.image = base64;
-                                            matchedCount++;
-                                        }
-                                    }
-                                }
-                            } else {
-                                throw new Error('Could not parse public folder items.');
-                            }
-                        } catch (err) {
-                            gdriveStatus.className = 'gdrive-status error';
-                            gdriveStatus.innerHTML = `Could not list folder automatically without API Key. Tip: Use the "Bulk Links / URLs" tab to paste share links directly, or provide an API Key.`;
-                            gdriveFetchBtn.disabled = false;
-                            return;
-                        }
-                    }
-                } else {
-                    // Tab 2: Bulk Links / URLs
-                    const rawText = gdriveLinksInput.value.trim();
-                    if (!rawText) {
-                        gdriveStatus.className = 'gdrive-status error';
-                        gdriveStatus.innerHTML = 'Please paste at least one Google Drive link or image URL.';
-                        gdriveFetchBtn.disabled = false;
-                        return;
-                    }
-
-                    const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-
-                    for (const line of lines) {
-                        let targetProductName = '';
-                        let urlStr = line;
-
-                        if (line.includes(':')) {
-                            const parts = line.split(':');
-                            targetProductName = parts[0].trim();
-                            urlStr = parts.slice(1).join(':').trim();
-                        }
-
-                        const fileId = extractDriveFileId(urlStr);
-                        if (!fileId && !urlStr.startsWith('http')) continue;
-
-                        const directUrl = fileId ? `https://lh3.googleusercontent.com/d/${fileId}` : urlStr;
-                        const base64 = await fetchImageAsBase64(directUrl);
-
-                        if (base64) {
-                            if (targetProductName) {
-                                for (const item of items) {
-                                    if (calculateMatchScore(item.name, targetProductName) >= 50) {
-                                        item.image = base64;
-                                        matchedCount++;
-                                        break;
-                                    }
-                                }
-                            } else {
-                                for (const item of items) {
-                                    if (!item.image && calculateMatchScore(item.name, urlStr) >= 40) {
-                                        item.image = base64;
-                                        matchedCount++;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                renderGridPages();
-                adjustAllFontSizes();
-
-                if (matchedCount > 0) {
-                    gdriveStatus.className = 'gdrive-status';
-                    gdriveStatus.innerHTML = `Successfully matched ${matchedCount} product image(s) from Google Drive!`;
-                    showToast(`Matched ${matchedCount} image(s) from Google Drive!`, 'success');
-                    setTimeout(() => closeGdriveModal(), 1500);
-                } else {
-                    gdriveStatus.className = 'gdrive-status info';
-                    gdriveStatus.innerHTML = 'No product names matched with the files found. Make sure file names match product titles.';
-                }
-            } catch (err) {
-                console.error('GDrive Match Error:', err);
-                gdriveStatus.className = 'gdrive-status error';
-                gdriveStatus.innerHTML = `Error: ${err.message}`;
-            } finally {
-                gdriveFetchBtn.disabled = false;
-            }
-        });
-    }
 });
-
